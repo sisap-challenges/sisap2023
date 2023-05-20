@@ -17,7 +17,7 @@ function normalize_vectors!(X)
         normalize!(c)
     end
 
-    StrideMatrixDatabase(X)
+    MatrixDatabase(X)
 end
 
 """
@@ -28,23 +28,23 @@ Computes the gold standard of `k` nearest neighbors of dbname and qname (searchi
 function gold_standard(; dbname, qname, s, k, outname)
     dist = NormalizedCosineDistance()
     Q = jldopen(qname) do f
-        normalize_vectors!(f["emb"])
+        normalize_vectors!(Float64.(f["emb"]))
     end
 
     KNN = [KnnResult(k) for _ in eachindex(Q)]
 
     h5open(dbname) do f
         E = f["emb"]
+        @show typeof(E)
         n = size(E, 2)
         
         @info "working on $dbname (size $(n)) -- $(Dates.now())"
         
         for r in Iterators.partition(1:n, s)
             @info "advance $(r) -- $outname -- step: $(s) -- $(Dates.now())"
-            X = normalize_vectors!(E[:, r])
+            X = normalize_vectors!(Float64.(E[:, r]))
             eval_queries!(dist, KNN, Q, X, r)
         end
-
     end
 
     @info "done $outname $(Dates.now()), now saving"
@@ -61,13 +61,13 @@ function gold_standard(; dbname, qname, s, k, outname)
 end
 
 function main()
-    k = 100
+    k = 1000
     s = 10^6
-    qname = "SISAP23-Challenge/clip768/en-queries/public-queries-10k-clip768.h5"
+    qname = "SISAP23-Challenge/public-queries-10k-clip768v2.h5"
 
-    for sizename in ["100K", "300K", "10M", "30M", "100M"]
-        dbname = "SISAP23-Challenge/clip768/en-bundles/laion2B-en-clip768-n=$sizename.h5"
-        outname = "SISAP23-Challenge/public-queries/en-gold-standard-public/laion2B-en-public-gold-standard-v2-$sizename.h5"
+    for sizename in ["300K", "10M", "30M", "100M"]
+        dbname = "SISAP23-Challenge/laion2B-en-clip768v2-n=$sizename.h5"
+        outname = "laion2B-en-public-gold-standard-v2-$sizename-F64-IEEE754.h5"
         @info "start $(Dates.now()) $outname"
         gold_standard(; dbname, qname, s, k, outname)
     end
